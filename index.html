@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Test WS mqtt.js</title>
+  <meta charset="utf-8">
+  <!-- <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>  -->
+  <meta name="viewport" content="initial-scale=1, width=device-width, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="css/index.css">
+
+  <!--script src="./browserMqtt.js" https://github.com/techbeast-org/aws-mqtt-dht/blob/master/index.html></script-->
+  <script src="https://unpkg.com/mqtt@4.1.0/dist/mqtt.min.js"></script>
+  <!---add mqtt.js jacascript-->
+  <script src="js/joy.js"> </script>
+</head>
+
+<body>
+  <div class="application-container">
+    <div class="university-logo">
+      <img src="img/issatso.png" width="100" height="40">
+    </div>
+    <div class="title">Application de test du communication </div>
+    <div class="subtitle"> Publish Joystick corrdonation & Subscibe battery level data via MQTT protocal
+    </div>
+    <div class="robot-image">
+      <image src='https://www.enovarobotics.eu/wp-content/uploads/2020/03/Veasense.png' width="150" height="300"
+        alt="logoCoveaRobot" ;>
+    </div>
+    <div class="start-up-logo">
+      <img src="img/logoEnovaRobotics-1.png" width="150" height="50">
+    </div>
+
+    <div class="robot-info">
+      <div class="slider-container">
+        <div class="slider-label" id="sliderLabel">Robot Speed : </div>
+        <input type="range" min="1" max="100" step="1" class="slider" id="speed">
+      </div>
+
+      <div class="joy-button">
+        <div class="joy-background" id="joyDiv"></div>
+      </div>
+
+      <div class="battery-container">
+        <div class="battery-label"> Robot Battery Level : <span id="battery-value"></span></div>
+        <div class="battery">
+          <div id="battery-icon" class="battery-level" style="height:75%;"></div>
+        </div>
+      </div>
+    </div>
+
+
+    <script>
+      var client = mqtt.connect("ws://test.mosquitto.org:8080");
+      var connected = false;
+      const topic = "covea/joystick";
+      var batteryLevel = 75
+      var currentCoordinate = { x: 0, y: 0 };
+      var sliderValue = 50;
+
+      // Create JoyStick object into the DIV 'joyDiv'
+      var joy = new JoyStick('joyDiv', {
+        width: "200",
+        height: "200",
+        internalFillColor: "#5175A7",
+        internalLineWidth: "4",
+        internalStrokeColor: "#2E5894",
+        internalLineWidth: "4",
+        externalStrokeColor: "#2E5894"
+      });
+      
+      const slider = document.getElementById("speed");
+      const sliderLabel = document.getElementById("sliderLabel");
+      const batterySpan = document.getElementById("battery-value");
+      const batteryIcon = document.getElementById("battery-icon");
+
+
+      client.on('connect', function () {
+        connected = true;
+        console.log("connected");
+        client.publish(topic, "Hi from Websocket")
+        client.subscribe("covea/battery-level") //your mqtt topic
+      });
+
+      const changeBatteryIcon = (level) => {
+        if (level > 75) {
+          batteryIcon.className = "battery-level";
+          batteryIcon.style.height = "100%";
+        } else if (level > 50) {
+          batteryIcon.className = "battery-level";
+          batteryIcon.style.height = "75%";
+        } else if (level > 25) {
+          batteryIcon.className = "battery-level";
+          batteryIcon.style.height = "50%";
+        } else if (level > 18) {
+          batteryIcon.className = "battery-level";
+          batteryIcon.style.height = "25%";
+        } else if (level > 10) {
+          batteryIcon.className = "battery-level warn";
+          batteryIcon.style.height = "18%";
+        } else {
+          batteryIcon.className = "battery-level alert";
+          batteryIcon.style.height = "10%";
+        }
+      }
+
+      const map = (x, max) => ((x * max) / 110) - 0.0001;
+
+      client.on('message', function (topic, message) {
+        // message is Buffer
+        console.log("Battery Level : ", message.toString())
+        batteryLevel = parseInt(message.toString());
+        batterySpan.innerHTML = message.toString() + "%";
+        changeBatteryIcon(batteryLevel);
+      })
+
+      sliderLabel.innerHTML = "Robot Speed : " + sliderValue + "%";
+      slider.value = sliderValue;
+
+      slider.oninput = function () {
+        sliderValue = this.value;
+        sliderLabel.innerHTML = "Robot Speed : " + sliderValue + "%";
+      }
+
+      const isEqual = (object1, object2) => {
+        const keys1 = Object.keys(object1);
+        const keys2 = Object.keys(object2);
+        for (const key of keys1) {
+          const val1 = object1[key];
+          const val2 = object2[key];
+          if (val1 !== val2) {
+            return false;
+          }
+        }
+
+        return true;
+      }
+
+      const joyCoordinate = (max) => ({ x: map(joy.GetX(), max), y: map(joy.GetY(), max) });
+      const toJson = (joyCoordinate) => (`{ "x": ${joyCoordinate.x},  "y": ${joyCoordinate.y} }`)
+
+      setInterval(() => {
+        var coordinate = joyCoordinate(sliderValue / 100)
+        if (!isEqual(currentCoordinate, coordinate)) {
+          console.log(coordinate);
+          currentCoordinate = coordinate;
+          client.publish(topic, toJson(currentCoordinate))
+          publishImmidiately = false
+        }
+      }, 50);
+    </script>
+</body>
+
+</html>

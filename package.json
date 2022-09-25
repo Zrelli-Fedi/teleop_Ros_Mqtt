@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "cordova": "^5.3.3",
+    "mqtt": "^4.2.6"
+  }
+}
